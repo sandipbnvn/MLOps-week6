@@ -10,7 +10,8 @@ app = FastAPI(title="🌺 Iris Classifier API")
 sys.path.append(os.path.join(os.path.dirname(__file__), 'artifacts'))
 
 # Load model
-model = joblib.load("artifacts/model.joblib")
+model_data = joblib.load("artifacts/model.joblib")
+model = model_data['model']
 
 # Input schema
 class IrisInput(BaseModel):
@@ -25,6 +26,6 @@ def read_root():
 
 @app.post("/predict/")
 def predict_species(data: IrisInput):
-    input_df = pd.DataFrame([data.dict()])
+    input_df = pd.DataFrame([data.model_dump()])
     prediction = model.predict(input_df)[0]
     return {"predicted_class": prediction}

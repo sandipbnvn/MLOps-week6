@@ -29,6 +29,4 @@ fastapi
 pydantic
 
 # Development tools
-black
-flake8
-mypy 
+uvicorn
