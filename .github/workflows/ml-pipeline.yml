@@ -1,0 +1,65 @@
+name: MLOps Pipeline CI/CD
+
+on:
+  pull_request:
+    branches: [ main, stg ]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  ml-pipeline:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run unit tests
+      run: |
+        python -m pytest tests/ -v
+    
+    - name: Run integration tests
+      run: |
+        python -m pytest tests/test_integration.py -v
+    
+    - name: Run MLOps pipeline
+      run: |
+        python run_pipeline.py
+    
+    - name: Setup CML
+      uses: iterative/setup-cml@v1
+    
+    - name: Create CML report
+      env:
+        REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "test output" > report.md
+        echo "\`\`\`" >> report.md
+        cat artifacts/pipeline_results.json >> report.md
+        echo "\`\`\`" > report.md
+        echo "metrics from training" >> report.md
+        cat artifacts/metrics.json >> report.md
+        cml comment create --publish report.md 

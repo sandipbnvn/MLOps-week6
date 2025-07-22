@@ -1,0 +1,48 @@
+# MLOps Pipeline Configuration
+
+# Data Configuration
+data:
+  input_path: "data/iris.csv"
+  test_size: 0.4
+  random_state: 42
+  target_column: "species"
+  feature_columns:
+    - "sepal_length"
+    - "sepal_width"
+    - "petal_length"
+    - "petal_width"
+
+# Model Configuration
+model:
+  type: "DecisionTreeClassifier"
+  parameters:
+    max_depth: 3
+    random_state: 1
+  artifact_path: "artifacts/model.joblib"
+  metrics_path: "artifacts/metrics.json"
+
+# Training Configuration
+training:
+  random_state: 42
+  stratify: true
+
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "accuracy"
+    - "precision_macro"
+    - "recall_macro"
+    - "f1_macro"
+  threshold_accuracy: 0.95
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "artifacts/pipeline.log"
+
+# Google Cloud Configuration (for future use)
+gcp:
+  project_id: "mlops-may-2025-iitm"
+  location: "asia-south1"
+  bucket_uri: "gs://mlops-may-2025-iitm-21f1002787-w1-unique" 
