@@ -1,0 +1,61 @@
+Copy over from the fastapi/ folder the fastapi app and the model joblib file
+
+sudo usermod -aG docker $USER — one time addition of the user
+
+docker build -t iris-api-v2 .
+
+docker run -d -p 8200:8200 iris-api - will return container ID (e.g. 114fdd7ab0869ab2e030ed284e3d1c1c939899b5b4762b8d244c998b6a2101f6)
+
+-d is detached mode
+
+8200 of local app within docker is mapped to 8200 of the host
+
+ensure 8200 port is open in the vpc firewall
+
+You can give a “–name <>” too so it's easier to identify
+
+Issue the curl command
+
+docker logs 114fdd7ab0869ab2e030ed284e3d1c1c939899b5b4762b8d244c998b6a2101f6 to verify output
+
+To take the docker container down:
+First, list containers: docker ps
+then issue: docker stop <>
+
+------------------------------K8n--------------------------------------------
+To deploy to k8s:
+
+Enable k8s engine API on cloud console
+
+gcloud services enable artifactregistry.googleapis.com
+
+gcloud artifacts repositories create my-repo \
+--repository-format=docker \
+--location=us-central1\
+--description="Docker repo for ML models"
+
+gcloud auth configure-docker us-central1-docker.pkg.dev
+
+docker images – to get the image name corresponding to the model you created.
+
+Tag the image – docker tag iris-api us-central1-docker.pkg.dev/dulcet-bastion-452612-v4/my-repo/iris-api:latest
+
+Push the image – docker push us-central1-docker.pkg.dev/dulcet-bastion-452612-v4/my-repo/iris-api:latest
+
+Artifact registry is now populated. From now on, even if the k8s cluster that will get created is down or deleted, we can recreate using the image in the AR.
+
+GKE:
+
+Create a cluster.
+
+test-iris-v1, iris-classifier namespace
+
+Deploy – takes about 5 mins
+
+Click on "Connect" -> "Open workloads dashboard"
+
+Then do a deploy by selecting the existing image
+
+Then expose it using a LoadBalancer
+
+Before issuing curl, check if the deployment is running fine. Best to go back to the workbench instance or even cloud shell.
