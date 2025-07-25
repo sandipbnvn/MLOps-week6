@@ -36,7 +36,7 @@ jobs:
       - name: Build and push Docker image
         run: |
           VERSION=$(date +%Y%m%d-%H%M%S)
-          IMAGE_NAME="$REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY/iris-api:$ENVIRONMENT-$VERSION"
+          IMAGE_NAME="$REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY/iris-api-$ENVIRONMENT-$VERSION"
           
           docker build -t $IMAGE_NAME .
           docker push $IMAGE_NAME
