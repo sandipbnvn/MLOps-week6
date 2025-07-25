@@ -109,10 +109,18 @@ jobs:
         run: |
           gcloud container clusters get-credentials $STAGING_CLUSTER --region $REGION
           
+          # Create namespace first
+          kubectl apply -f .github/cml/k8s/staging/namespace.yml
+          
+          # Wait for namespace to be ready
+          kubectl wait --for=condition=Active namespace/staging --timeout=60s
+          
           # Update deployment with new image
           sed -i "s|IMAGE_PLACEHOLDER|$IMAGE_NAME|g" .github/cml/k8s/staging/deployment.yml
           
-          kubectl apply -f .github/cml/k8s/staging/
+          # Apply remaining resources
+          kubectl apply -f .github/cml/k8s/staging/deployment.yml
+          kubectl apply -f .github/cml/k8s/staging/service.yml
           
           # Wait for deployment to be ready
           kubectl rollout status deployment/iris-api-staging -n staging --timeout=300s
