@@ -29,14 +29,22 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Configure Docker for Artifact Registry
+      - name: Configure Docker for Container Registry
         run: |
-          gcloud auth configure-docker $REGION-docker.pkg.dev
+          gcloud auth configure-docker gcr.io
+
+      - name: Verify Container Registry access
+        run: |
+          echo "Checking current authentication..."
+          gcloud auth list
+          
+          echo "Checking project access..."
+          gcloud projects describe $PROJECT_ID
 
       - name: Build and push Docker image
         run: |
           VERSION=$(date +%Y%m%d-%H%M%S)
-          IMAGE_NAME="$REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY/iris-api-$ENVIRONMENT-$VERSION"
+          IMAGE_NAME="gcr.io/$PROJECT_ID/iris-api-$ENVIRONMENT-$VERSION"
           
           docker build -t $IMAGE_NAME .
           docker push $IMAGE_NAME
