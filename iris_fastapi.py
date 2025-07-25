@@ -6,7 +6,7 @@ import pandas as pd
 import sys
 import os
 
-app = FastAPI(title="🌺 Iris Classifier API")
+app = FastAPI(title="Iris Classifier API")
 sys.path.append(os.path.join(os.path.dirname(__file__), 'artifacts'))
 
 # Load model

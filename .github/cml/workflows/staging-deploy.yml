@@ -2,12 +2,12 @@ name: Staging Deployment Pipeline
 
 on:
   push:
-    branches: [staging]
+    branches: [stg]
   workflow_dispatch:
 
 env:
-  ENVIRONMENT: staging
-  REGION: us-central1
+  ENVIRONMENT: stg
+  REGION: asia-south2
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}
   STAGING_CLUSTER: ${{ secrets.GCP_STAGING_CLUSTER }}
