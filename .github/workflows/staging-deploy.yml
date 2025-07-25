@@ -29,22 +29,26 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Configure Docker for Container Registry
+      - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker gcr.io
+          gcloud auth configure-docker asia-south2-docker.pkg.dev
 
-      - name: Verify Container Registry access
+      - name: Verify Artifact Registry access
         run: |
           echo "Checking current authentication..."
           gcloud auth list
           
           echo "Checking project access..."
           gcloud projects describe $PROJECT_ID
+          
+          echo "Testing Docker authentication..."
+          gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin asia-south2-docker.pkg.dev
 
       - name: Build and push Docker image
         run: |
           VERSION=$(date +%Y%m%d-%H%M%S)
-          IMAGE_NAME="gcr.io/$PROJECT_ID/iris-api-$ENVIRONMENT-$VERSION"
+          # Use Artifact Registry format for asia-south2 region
+          IMAGE_NAME="asia-south2-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY/iris-api:$VERSION"
           
           docker build -t $IMAGE_NAME .
           docker push $IMAGE_NAME
