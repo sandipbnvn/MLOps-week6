@@ -22,28 +22,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Install the gcloud CLI
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          install_components: 'gke-gcloud-auth-plugin'
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Build and push Docker image
-        env:
-          GOOGLE_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-        run: |
-          VERSION=$(date +%Y%m%d-%H%M%S)
-          gcloud auth configure-docker asia-south2-docker.pkg.dev
-          docker build -t asia-south2-docker.pkg.dev/$GOOGLE_PROJECT/$ARTIFACT_REGISTRY/iris-api:$VERSION .
-          docker push asia-south2-docker.pkg.dev/$GOOGLE_PROJECT/$ARTIFACT_REGISTRY/iris-api:$VERSION
+      - name: 'Build and Push Docker Image'
+        run: |-
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }} .
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}
           
-          echo "IMAGE_NAME=asia-south2-docker.pkg.dev/$GOOGLE_PROJECT/$ARTIFACT_REGISTRY/iris-api:$VERSION" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}" >> $GITHUB_ENV
+          echo "VERSION=${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Test Docker container
         run: |
@@ -98,16 +88,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install the gcloud CLI
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          install_components: 'gke-gcloud-auth-plugin'
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
       - name: Deploy to staging
         env:
