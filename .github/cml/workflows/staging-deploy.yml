@@ -1,0 +1,152 @@
+name: Staging Deployment Pipeline
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+env:
+  ENVIRONMENT: staging
+  REGION: us-central1
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}
+  STAGING_CLUSTER: ${{ secrets.GCP_STAGING_CLUSTER }}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure Google Cloud credentials
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker $REGION-docker.pkg.dev
+
+      - name: Build and push Docker image
+        run: |
+          VERSION=$(date +%Y%m%d-%H%M%S)
+          IMAGE_NAME="$REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY/iris-api:$ENVIRONMENT-$VERSION"
+          
+          docker build -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
+          
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Test Docker container
+        run: |
+          # Start container in background
+          docker run -d -p 8200:8200 --name test-container $IMAGE_NAME
+          
+          # Wait for container to start
+          sleep 10
+          
+          # Test root endpoint
+          RESPONSE=$(curl -s http://localhost:8200/)
+          EXPECTED='{"message":"Welcome to the Iris Classifier API!"}'
+          
+          if [ "$RESPONSE" = "$EXPECTED" ]; then
+            echo "✅ Root endpoint test passed"
+          else
+            echo "❌ Root endpoint test failed"
+            echo "Expected: $EXPECTED"
+            echo "Got: $RESPONSE"
+            exit 1
+          fi
+          
+          # Test health endpoint
+          HEALTH_RESPONSE=$(curl -s http://localhost:8200/health)
+          if [ "$HEALTH_RESPONSE" = '{"status":"healthy"}' ]; then
+            echo "✅ Health endpoint test passed"
+          else
+            echo "❌ Health endpoint test failed"
+            exit 1
+          fi
+          
+          # Test prediction endpoint with sample data
+          PREDICTION_RESPONSE=$(curl -s -X POST http://localhost:8200/predict/ \
+            -H "Content-Type: application/json" \
+            -d '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}')
+          
+          if echo "$PREDICTION_RESPONSE" | grep -q "predicted_class"; then
+            echo "✅ Prediction endpoint test passed"
+          else
+            echo "❌ Prediction endpoint test failed"
+            exit 1
+          fi
+          
+          # Cleanup
+          docker stop test-container
+          docker rm test-container
+
+  deploy-to-staging:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure Google Cloud credentials
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials $STAGING_CLUSTER \
+            --region $REGION \
+            --project $PROJECT_ID
+
+      - name: Deploy to staging
+        run: |
+          # Update deployment with new image
+          sed -i "s|IMAGE_PLACEHOLDER|$IMAGE_NAME|g" .github/cml/k8s/staging/deployment.yml
+          
+          kubectl apply -f .github/cml/k8s/staging/
+          
+          # Wait for deployment to be ready
+          kubectl rollout status deployment/iris-api-staging -n staging --timeout=300s
+
+      - name: Run post-deployment tests
+        run: |
+          # Get service URL
+          SERVICE_URL=$(kubectl get service iris-api-staging -n staging -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          
+          # Wait for service to be available
+          sleep 30
+          
+          # Test endpoints
+          curl -f http://$SERVICE_URL:8200/ || exit 1
+          curl -f http://$SERVICE_URL:8200/health || exit 1
+          
+          # Test prediction endpoint
+          curl -f -X POST http://$SERVICE_URL:8200/predict/ \
+            -H "Content-Type: application/json" \
+            -d '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}' || exit 1
+          
+          echo "✅ Post-deployment tests passed"
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "🚀 Successfully deployed to staging environment"
+          echo "Image: $IMAGE_NAME"
+          echo "Version: $VERSION" 
