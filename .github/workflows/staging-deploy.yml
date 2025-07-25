@@ -33,10 +33,15 @@ jobs:
 
       - name: 'Build and Push Docker Image'
         run: |-
-          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }} .
+          # Build image with both latest and commit SHA tags
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest .
+          docker tag ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}
+          
+          # Push both tags
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}
           
-          echo "IMAGE_NAME=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest" >> $GITHUB_ENV
           echo "VERSION=${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Test Docker container
