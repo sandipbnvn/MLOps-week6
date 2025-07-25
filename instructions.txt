@@ -38,9 +38,9 @@ gcloud auth configure-docker us-central1-docker.pkg.dev
 
 docker images – to get the image name corresponding to the model you created.
 
-Tag the image – docker tag iris-api us-central1-docker.pkg.dev/dulcet-bastion-452612-v4/my-repo/iris-api:latest
+Tag the image – docker tag iris-api asia-south2-docker.pkg.dev/mlops-may-2025-iitm/my-repo/iris-api:latest
 
-Push the image – docker push us-central1-docker.pkg.dev/dulcet-bastion-452612-v4/my-repo/iris-api:latest
+Push the image – docker push asia-south2-docker.pkg.dev/mlops-may-2025-iitm/my-repo/iris-api:latest
 
 Artifact registry is now populated. From now on, even if the k8s cluster that will get created is down or deleted, we can recreate using the image in the AR.
 

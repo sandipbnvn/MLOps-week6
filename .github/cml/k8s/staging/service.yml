@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: iris-api-staging
+  namespace: staging
+  labels:
+    app: iris-api
+    environment: staging
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8200
+    targetPort: 8200
+    protocol: TCP
+    name: http
+  selector:
+    app: iris-api
+    environment: staging 

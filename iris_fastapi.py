@@ -24,6 +24,10 @@ class IrisInput(BaseModel):
 def read_root():
     return {"message": "Welcome to the Iris Classifier API!"}
 
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
 @app.post("/predict/")
 def predict_species(data: IrisInput):
     input_df = pd.DataFrame([data.model_dump()])
