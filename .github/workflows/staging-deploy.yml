@@ -9,7 +9,7 @@ env:
   ENVIRONMENT: stg
   REGION: asia-south2
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}
+  ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}-stg
   STAGING_CLUSTER: ${{ secrets.GCP_STAGING_CLUSTER }}
 
 jobs:
