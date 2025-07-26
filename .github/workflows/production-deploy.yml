@@ -71,7 +71,7 @@ jobs:
       - name: Deploy to Kubernetes
         run: |
           # Update the manifest with the actual image SHA
-          sed -i "s|us-central1-docker.pkg.dev/mlops-may-2025-iitm/my-repo-prd/iris-api:latest|us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}|g" k8s/production-deployment.yaml
+          sed -i "s|asia-south2-docker.pkg.dev/mlops-may-2025-iitm/my-repo-prd/iris-api:latest|asia-south2-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}|g" k8s/production-deployment.yaml
           
           # Delete the old deployment if it exists (to avoid selector immutability error)
           kubectl delete deployment demo-iris-workload-prd -n default --ignore-not-found

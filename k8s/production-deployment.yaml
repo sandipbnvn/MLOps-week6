@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: demo-iris-workload-prd
-        image: us-central1-docker.pkg.dev/mlops-may-2025-iitm/my-repo-prd/iris-api:latest
+        image: asia-south2-docker.pkg.dev/mlops-may-2025-iitm/my-repo-prd/iris-api:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8200
