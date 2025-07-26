@@ -26,28 +26,14 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: "gke-gcloud-auth-plugin"
+
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
-
-      - name: Install gke-gcloud-auth-plugin
-        run: |
-          # Detect architecture and download appropriate version
-          ARCH=$(uname -m)
-          if [ "$ARCH" = "x86_64" ]; then
-            PLUGIN_URL="https://storage.googleapis.com/gke-gcloud-auth-plugin/v1.0.0/gke-gcloud-auth-plugin-linux-amd64"
-          elif [ "$ARCH" = "aarch64" ]; then
-            PLUGIN_URL="https://storage.googleapis.com/gke-gcloud-auth-plugin/v1.0.0/gke-gcloud-auth-plugin-linux-arm64"
-          else
-            echo "Unsupported architecture: $ARCH"
-            exit 1
-          fi
-          
-          echo "Installing gke-gcloud-auth-plugin for architecture: $ARCH"
-          curl -O $PLUGIN_URL
-          chmod +x gke-gcloud-auth-plugin-linux-*
-          sudo mv gke-gcloud-auth-plugin-linux-* /usr/local/bin/gke-gcloud-auth-plugin
-          echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
       - name: Build Docker Image
         run: |-
@@ -76,11 +62,25 @@ jobs:
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest
 
-      - name: Update Kubernetes Deployment
+      - name: Get GKE Credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: demo-gke-iris-cluster-prd2
+          location: us-central1
+
+      - name: Deploy to Kubernetes
         run: |
-          gcloud container clusters get-credentials test-iris-v1 --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }}
-          kubectl set image deployment/iris-api iris-api=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }} -n iris-classifier
-          kubectl rollout status deployment/iris-api -n iris-classifier --timeout=300s
+          # Update the manifest with the actual image SHA
+          sed -i "s|us-central1-docker.pkg.dev/mlops-may-2025-iitm/my-repo-prd/iris-api:latest|us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}|g" k8s/production-deployment.yaml
+          
+          # Delete the old deployment if it exists (to avoid selector immutability error)
+          kubectl delete deployment demo-iris-workload-prd -n default --ignore-not-found
+          
+          # Apply the deployment manifest
+          kubectl apply -f k8s/production-deployment.yaml
+          
+          # Wait for rollout to complete
+          kubectl rollout status deployment/demo-iris-workload-prd -n default --timeout=300s
 
       - name: Notify success
         if: success()
