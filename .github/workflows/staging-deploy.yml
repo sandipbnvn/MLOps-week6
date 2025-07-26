@@ -9,8 +9,7 @@ env:
   ENVIRONMENT: stg
   REGION: asia-south2
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  ARTIFACT_REGISTRY: my-repo-stg
-  STAGING_CLUSTER: ${{ secrets.GCP_STAGING_CLUSTER }}
+  ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}-stg
 
 jobs:
   build-and-test:
@@ -31,16 +30,9 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
-      - name: 'Build and Push Docker Image'
+      - name: Build Docker Image
         run: |-
-          # Build image with both latest and commit SHA tags
           docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest .
-          docker tag ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}
-          
-          # Push both tags
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}
-          
           echo "IMAGE_NAME=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest" >> $GITHUB_ENV
           echo "VERSION=${{ github.sha }}" >> $GITHUB_ENV
 
@@ -49,111 +41,25 @@ jobs:
           # Start container in background
           docker run -d -p 8200:8200 --name test-container $IMAGE_NAME
           
-          # Wait for container to start
-          sleep 10
+          # Install requests library for testing
+          pip install requests
           
-          # Test root endpoint
-          RESPONSE=$(curl -s http://localhost:8200/)
-          EXPECTED='{"message":"Welcome to the Iris Classifier API!"}'
-          
-          if [ "$RESPONSE" = "$EXPECTED" ]; then
-            echo "✅ Root endpoint test passed"
-          else
-            echo "❌ Root endpoint test failed"
-            echo "Expected: $EXPECTED"
-            echo "Got: $RESPONSE"
-            exit 1
-          fi
-          
-          # Test health endpoint
-          HEALTH_RESPONSE=$(curl -s http://localhost:8200/health)
-          if [ "$HEALTH_RESPONSE" = '{"status":"healthy"}' ]; then
-            echo "✅ Health endpoint test passed"
-          else
-            echo "❌ Health endpoint test failed"
-            exit 1
-          fi
-          
-          # Test prediction endpoint with sample data
-          PREDICTION_RESPONSE=$(curl -s -X POST http://localhost:8200/predict/ \
-            -H "Content-Type: application/json" \
-            -d '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}')
-          
-          if echo "$PREDICTION_RESPONSE" | grep -q "predicted_class"; then
-            echo "✅ Prediction endpoint test passed"
-          else
-            echo "❌ Prediction endpoint test failed"
-            exit 1
-          fi
+          # Run Python tests
+          python test.py
           
           # Cleanup
           docker stop test-container
           docker rm test-container
 
-  deploy-to-staging:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Push Docker Image
+        run: |-
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest
 
-      - name: Install the gcloud CLI
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          install_components: 'gke-gcloud-auth-plugin'
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
-      - name: Deploy to staging
-        env:
-          GOOGLE_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-        run: |
-          gcloud container clusters get-credentials $STAGING_CLUSTER --region $REGION
-          
-          # Use default namespace (where your workload already exists)
-          # No need to create namespace since we're using default
-          
-          # Update deployment with new image
-          sed -i "s|IMAGE_PLACEHOLDER|$IMAGE_NAME|g" .github/cml/k8s/staging/deployment.yml
-          
-          # Update the existing deployment with new image
-          kubectl set image deployment/demo-iris-workload-stg iris-api-1=$IMAGE_NAME -n default
-          
-          # Wait for deployment to be ready
-          kubectl rollout status deployment/demo-iris-workload-stg -n default --timeout=300s
-
-      - name: Run post-deployment tests
-        run: |
-          # Get service URL (assuming you have a service created)
-          SERVICE_URL=$(kubectl get service -n default -l app=demo-iris-workload-stg -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-          
-          if [ -z "$SERVICE_URL" ]; then
-            echo "⚠️  No LoadBalancer service found. Please create a service for your workload."
-            echo "✅ Deployment completed successfully"
-            exit 0
-          fi
-          
-          # Wait for service to be available
-          sleep 30
-          
-          # Test endpoints
-          curl -f http://$SERVICE_URL/ || exit 1
-          curl -f http://$SERVICE_URL/health || exit 1
-          
-          # Test prediction endpoint
-          curl -f -X POST http://$SERVICE_URL/predict/ \
-            -H "Content-Type: application/json" \
-            -d '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}' || exit 1
-          
-          echo "✅ Post-deployment tests passed"
-
-      - name: Notify deployment success
+      - name: Notify success
         if: success()
         run: |
-          echo "🚀 Successfully deployed to staging environment"
+          echo "🚀 Successfully built, tested, and pushed image to Artifact Registry"
           echo "Image: $IMAGE_NAME"
-          echo "Version: $VERSION" 
+          echo "Version: $VERSION"
+          echo "Your GKE workload will automatically pick up the new image!"
+ 
