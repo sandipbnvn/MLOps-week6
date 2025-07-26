@@ -12,7 +12,7 @@ env:
   ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}-stg
 
 jobs:
-  build-and-test:
+  build-test-deploy-stg:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

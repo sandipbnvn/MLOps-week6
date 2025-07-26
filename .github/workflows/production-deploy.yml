@@ -12,7 +12,7 @@ env:
   ARTIFACT_REGISTRY: ${{ secrets.GCP_ARTIFACT_REGISTRY }}-prd
 
 jobs:
-  build-and-test:
+  build-test-deploy-prd:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
