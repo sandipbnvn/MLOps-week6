@@ -7,7 +7,7 @@ metadata:
     app: iris-api
     environment: staging
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: iris-api
