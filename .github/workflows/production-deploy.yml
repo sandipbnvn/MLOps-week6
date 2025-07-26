@@ -32,8 +32,9 @@ jobs:
 
       - name: Build Docker Image
         run: |-
-          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest .
-          echo "IMAGE_NAME=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest" >> $GITHUB_ENV
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }} .
+          docker tag ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }} ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest
+          echo "IMAGE_NAME=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}" >> $GITHUB_ENV
           echo "VERSION=${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Test Docker container
@@ -53,7 +54,14 @@ jobs:
 
       - name: Push Docker Image
         run: |-
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }}
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:latest
+
+      - name: Update Kubernetes Deployment
+        run: |
+          gcloud container clusters get-credentials test-iris-v1 --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }}
+          kubectl set image deployment/iris-api iris-api=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY }}/iris-api:${{ github.sha }} -n iris-classifier
+          kubectl rollout status deployment/iris-api -n iris-classifier --timeout=300s
 
       - name: Notify success
         if: success()
