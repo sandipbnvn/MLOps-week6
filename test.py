@@ -39,7 +39,7 @@ def test_root_endpoint():
         response = requests.get(f"{BASE_URL}/", timeout=10)
         response.raise_for_status()
         
-        expected = {"message": "Welcome to the Iris Classifier API!v4"}
+        expected = {"message": "Welcome to the Iris Classifier API!v5"}
         actual = response.json()
         
         if actual == expected:

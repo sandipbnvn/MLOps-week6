@@ -22,7 +22,7 @@ class IrisInput(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Iris Classifier API!v4"}
+    return {"message": "Welcome to the Iris Classifier API!v5"}
 
 @app.get("/health")
 def health_check():
